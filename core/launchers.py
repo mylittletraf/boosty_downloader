@@ -1,6 +1,11 @@
 import asyncio
+from datetime import datetime, UTC
+import json
+import re
 from pathlib import Path
 from typing import Literal
+
+import unicodedata
 
 from boosty.api import get_all_image_media, get_all_video_media, get_all_posts, get_all_audio_media
 from boosty.wrappers.post_pool import PostPool
@@ -10,6 +15,14 @@ from core.logger import logger
 from core.stat_tracker import stat_tracker, StatTracker
 from core.utils import create_dir_if_not_exists, download_file_if_not_exists, create_text_document
 
+def sanitize(name: str) -> str:
+    name = re.sub(r'[\\/*?:"<>|#]', '', name)
+    name = "".join(c for c in name if c.isprintable())
+    name = unicodedata.normalize('NFKD', name)
+    name = re.sub(r'\s+', '_', name)
+    name = re.sub(r'_+', '_', name)
+    name = name.strip('_')
+    return name[:100]
 
 async def get_file_and_raise_stat(url: str, path_file: Path, tracker: StatTracker, _t: Literal["p", "v", "a", "f"]):
     match _t:
@@ -92,8 +105,10 @@ async def fetch_and_save_media(creator_name: str, use_cookie: bool):
         videos = media_pool.get_videos()
         grp_videos = []
         i = 0
-        for video in videos:
-            path = video_path / (video["id"] + ".mp4")
+        for idx, video in enumerate(videos, start=1):
+            title = sanitize(video.get("post_title", "video"))
+            filename = f"{title}_video{idx}.mp4"
+            path = video_path / filename
             grp_videos.append(get_file_and_raise_stat(video["url"], path, stat_tracker, "v"))
             i += 1
             if i == conf.max_download_parallel:
@@ -141,7 +156,14 @@ async def fetch_and_save_posts(creator_name: str, use_cookie: bool):
     for post in post_pool.posts:
         if desired_post_id and post.id != desired_post_id:
             continue
-        post_path = posts_path / post.id
+        clean_title = sanitize(post.title or f"post_{post.id}")
+        publish_dt = datetime.fromtimestamp(post.publish_time, UTC)
+        date_prefix = publish_dt.strftime("%Y-%m-%d")
+        post_folder_name = f"{date_prefix}_{clean_title}"
+        post_path = posts_path / post_folder_name
+        if post_path.exists():
+            logger.info(f"Post folder '{post_folder_name}' already exists. Skipping...")
+            continue
         create_dir_if_not_exists(post_path)
         photo_path = post_path / "photos"
         video_path = post_path / "videos"
@@ -176,8 +198,12 @@ async def fetch_and_save_posts(creator_name: str, use_cookie: bool):
             videos = post.media_pool.get_videos()
             grp_videos = []
             i = 0
-            for video in videos:
-                path = video_path / (video["id"] + ".mp4")
+            for idx, video in enumerate(videos, start=1):
+                if len(videos) == 1:
+                    filename = f"{clean_title}.mp4"
+                else:
+                    filename = f"{clean_title}_video{idx}.mp4"
+                path = video_path / sanitize(filename)
                 grp_videos.append(get_file_and_raise_stat(video["url"], path, stat_tracker, "v"))
                 i += 1
                 if i == conf.max_download_parallel:

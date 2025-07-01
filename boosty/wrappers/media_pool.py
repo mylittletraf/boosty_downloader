@@ -29,7 +29,7 @@ class MediaPool:
             "url": url
         }
 
-    def add_video(self, _id: str, url: str, size_amount: int):
+    def add_video(self, _id: str, url: str, size_amount: int, post_title: str):
         if not conf.need_load_video:
             return
         current = self.__videos.get(_id)
@@ -38,7 +38,8 @@ class MediaPool:
                 return
         self.__videos[_id] = {
             "url": url,
-            "size_amount": size_amount
+            "size_amount": size_amount,
+            "post_title": post_title,
         }
 
     def add_audio(self, _id: str, url: str, size_amount: int):
@@ -86,11 +87,12 @@ class MediaPool:
         :return: [{"id": 1, "url": "https://s3.com/1"}, ...]
         """
         res = []
-        for video_id in self.__videos.keys():
+        for video_id, video in self.__videos.items():
             res.append(
                 {
                     "id": video_id,
-                    "url": self.__videos[video_id]["url"]
+                    "url": video["url"],
+                    "post_title": video["post_title"],
                 }
             )
         return res

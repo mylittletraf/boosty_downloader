@@ -151,6 +151,7 @@ async def get_all_video_media(creator_name: str, media_pool: MediaPool, use_cook
             media_posts = resp["data"]["mediaPosts"]
             for post in media_posts:
                 if post["post"]["hasAccess"]:
+                    post_title = post["post"]["title"]
                     for media in post["media"]:
                         for url in media["playerUrls"]:
                             if url["type"] in VIDEO_QUALITY.keys() and url["url"] != "":
@@ -158,6 +159,7 @@ async def get_all_video_media(creator_name: str, media_pool: MediaPool, use_cook
                                     _id=media["id"],
                                     url=url["url"],
                                     size_amount=VIDEO_QUALITY[url["type"]],
+                                    post_title=post_title,
                                 )
             if extra["isLast"]:
                 is_end = True
@@ -310,6 +312,7 @@ async def get_all_posts(creator_name: str, post_pool: PostPool, use_cookie: bool
                                     new_post.media_pool.add_video(
                                         _id=media["id"],
                                         url=url["url"],
+                                        post_title=media["title"],
                                         size_amount=VIDEO_QUALITY[url["type"]],
                                     )
                         elif media["type"] == MediaType.IMAGE.value:
