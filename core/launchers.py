@@ -15,14 +15,20 @@ from core.logger import logger
 from core.stat_tracker import stat_tracker, StatTracker
 from core.utils import create_dir_if_not_exists, download_file_if_not_exists, create_text_document
 
-def sanitize(name: str) -> str:
+def sanitize(name: str, max_length: int = 80) -> str:
+    import re
+    import unicodedata
+
     name = re.sub(r'[\\/*?:"<>|#]', '', name)
     name = "".join(c for c in name if c.isprintable())
     name = unicodedata.normalize('NFKD', name)
     name = re.sub(r'\s+', '_', name)
     name = re.sub(r'_+', '_', name)
-    name = name.strip('_')
-    return name[:100]
+    name = name.strip(' _.')
+    name = name[:max_length]
+    name = name.rstrip(' .')
+
+    return name
 
 async def get_file_and_raise_stat(url: str, path_file: Path, tracker: StatTracker, _t: Literal["p", "v", "a", "f"]):
     match _t:
